@@ -5,6 +5,7 @@ import {
     CostModel,
     QueryContext,
     sampleUserAddress,
+    encodeUserAddress
 } from "@midnight-ntwrk/compact-runtime";
 import { 
     Contract,
@@ -20,6 +21,7 @@ import {
 import { randomBytes } from './utils.js';
 
 
+
 export class RaffleSimulator {
     readonly contract: Contract<RafflePrivateState>;
     contractAddress: string;
@@ -27,6 +29,7 @@ export class RaffleSimulator {
     alicePrivateState: RafflePrivateState;
     aliceSk: Uint8Array;
     circuitContext: CircuitContext<RafflePrivateState>;
+    amount: bigint;
 
     constructor(winningNum: bigint) {
         this.contract = new Contract<RafflePrivateState>(witnesses);
@@ -34,6 +37,7 @@ export class RaffleSimulator {
         this.aliceAddress = sampleUserAddress();
         this.aliceSk = randomBytes(32);
         this.alicePrivateState = createRafflePrivateState(WinnerState.UNSET, this.aliceSk);
+        this.amount = 100n;// arbitrary
 
         const {
             currentPrivateState,
@@ -42,6 +46,7 @@ export class RaffleSimulator {
         } = this.contract.initialState(
             createConstructorContext(this.alicePrivateState, this.aliceAddress),
             winningNum,
+            this.amount,
             this.aliceSk
         );
         this.circuitContext = {
@@ -77,9 +82,10 @@ export class RaffleSimulator {
         ).context;
     }
 
-    public claimWin(sk: Uint8Array): void {
+    public claimWin(address: string, sk: Uint8Array): void {
         this.circuitContext = this.contract.impureCircuits.claimWin(
             this.circuitContext,
+            encodeUserAddress(address),// encode string->Uint8Array
             sk
         ).context;
     }

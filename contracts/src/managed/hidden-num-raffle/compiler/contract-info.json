@@ -35,7 +35,7 @@
           }
         },
         {
-          "name": "sk",
+          "name": "_sk",
           "type": {
             "type-name": "Bytes",
             "length": 32
@@ -54,7 +54,14 @@
       "proof": true,
       "arguments": [
         {
-          "name": "sk",
+          "name": "address",
+          "type": {
+            "type-name": "Bytes",
+            "length": 32
+          }
+        },
+        {
+          "name": "_sk",
           "type": {
             "type-name": "Bytes",
             "length": 32
@@ -73,7 +80,7 @@
       "proof": false,
       "arguments": [
         {
-          "name": "sk",
+          "name": "_sk",
           "type": {
             "type-name": "Bytes",
             "length": 32

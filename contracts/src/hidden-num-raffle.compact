@@ -10,23 +10,32 @@ export ledger raffleOrganizer: Bytes<32>;
 export ledger hashedWinningNum: Bytes<32>;
 export ledger publicWinningNum: Uint<8>;
 export ledger winner: Bytes<32>;
-export ledger state: WinnerState;
+export ledger winState: WinnerState;
 export ledger assignedNumbers: Counter;
 export ledger assignedTicketHolders: Map<Bytes<32>, Uint<8>>;
+export ledger raffleAmount: Uint<8>;
 
-constructor(winningNum: Uint<8>, _sk: Bytes<32>) {
-    assert(winningNum >= 1 && winningNum <= 10, "Winning number must be between 1-10");
+constructor(_winningNum: Uint<8>, amount: Uint<8>, _sk: Bytes<32>) {
+    assert(_winningNum >= 1 && _winningNum <= 10, "Winning number must be between 1-10");
+
     const pubKey = publicKey(_sk);
     raffleOrganizer = disclose(pubKey);
-    hashedWinningNum = commitWithSk(winningNum as Bytes<32>, _sk);
-    state = WinnerState.UNSET;
-    // @TODO -- add token deposit to ensure organizer reveals
+
+    const pubAmount = disclose(amount);
+
+    // nativeToken() is the color of the night token
+    receiveUnshielded(nativeToken(), pubAmount);
+    // assert(unshieldedBalanceGte(nativeToken(), pubAmount), "Initial contract balance wrong");
+
+    raffleAmount = pubAmount;// maybe this should just be a balance check?
+    hashedWinningNum = commitWithSk(_winningNum as Bytes<32>, _sk);
+    winState = WinnerState.UNSET;
 }
 
-// @TODO -- add token deposit to buy ticket
 export circuit getTicket(_sk: Bytes<32>) : [] {
-    assert(state == WinnerState.UNSET, "A winner has already been declared");
+    assert(winState == WinnerState.UNSET, "A winner has already been declared");
     assert(assignedNumbers < 10, "Max tickets reached");
+
     const pubKey = publicKey(_sk);
     assert(!assignedTicketHolders.member(disclose(pubKey)), "You are already in the list");
     assert(disclose(pubKey) != raffleOrganizer, "The organizer cannot participate");
@@ -35,28 +44,42 @@ export circuit getTicket(_sk: Bytes<32>) : [] {
     assignedTicketHolders.insert(disclose(pubKey), assignedNumbers as Uint<8>);
 }
 
-export circuit revealWinner(winningNum: Uint<8>, sk: Bytes<32>) : [] {
-    const pubKey = publicKey(sk);
+export circuit revealWinner(winningNum: Uint<8>, _sk: Bytes<32>) : [] {
+    const pubKey = publicKey(_sk);
     assert(disclose(pubKey) == raffleOrganizer, "You are not the organizer");
+    assert(winState == WinnerState.UNSET, "A winner has already been declared");
 
-    const commitCheck = commitWithSk(winningNum as Bytes<32>, sk);
+    const commitCheck = commitWithSk(winningNum as Bytes<32>, _sk);
     assert(commitCheck == hashedWinningNum, "Wrong winning number provided, shame on you");    
+    
     publicWinningNum = disclose(winningNum);
-    state = WinnerState.SET;
+    winState = WinnerState.SET;
 }
 
-// @TODO -- send tokens to winner
-export circuit claimWin(sk: Bytes<32>) : [] {
-    const pubKey = publicKey(sk);
+export circuit claimWin(address: Bytes<32>, _sk: Bytes<32>) : [] {
+    const pubKey = publicKey(_sk);
     assert(assignedTicketHolders.member(disclose(pubKey)), "You are not an assigned ticket holder");
     assert(assignedTicketHolders.lookup(disclose(pubKey)) == publicWinningNum, "You do not have the winning number");
+    assert(winState == WinnerState.SET, "A winner has not been chosen yet");
+
     winner = disclose(pubKey);
+
+     // @TODO -- make this better
+    sendUnshielded(
+        nativeToken(), 
+        raffleAmount as Uint<128>, 
+        right<ContractAddress, UserAddress>(UserAddress{disclose(address)})
+    );
+    // nativeToken() is the color of NIGHT
+    // this is not a very good check -- I really can't use the balance?
+    assert(unshieldedBalanceLt(nativeToken(), raffleAmount as Uint<128>), "Tokens still in contract");
+    raffleAmount = 0;
 }
  
-circuit commitWithSk(winningNum: Bytes<32>, sk: Bytes<32>) : Bytes<32> {
-    return disclose(persistentHash<Vector<2, Bytes<32>>>([winningNum, sk]));
+circuit commitWithSk(_winningNum: Bytes<32>, _sk: Bytes<32>) : Bytes<32> {
+    return disclose(persistentHash<Vector<2, Bytes<32>>>([_winningNum, _sk]));
 }
 
-export circuit publicKey(sk: Bytes<32>): Bytes<32> {
-    return persistentHash<Vector<2, Bytes<32>>>([pad(32, "tip-board:pk:"), sk]);
+export circuit publicKey(_sk: Bytes<32>): Bytes<32> {
+    return persistentHash<Vector<2, Bytes<32>>>([pad(32, "tip-board:pk:"), _sk]);
 }

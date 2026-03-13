@@ -12,7 +12,7 @@ describe("Raffle Smart Contract", () => {
 
         const ledgerState = sim.getLedger();
         expect(ledgerState.assignedNumbers).toEqual(0n);
-        expect(ledgerState.state).toEqual(WinnerState.UNSET);
+        expect(ledgerState.winState).toEqual(WinnerState.UNSET);
         expect(ledgerState.raffleOrganizer).toEqual(aliceDappPubKey);
     });
     it('allows getTicket', () => {
@@ -128,12 +128,12 @@ describe("Raffle Smart Contract", () => {
 
         // claim win
         expect(() => {
-            sim.claimWin(kat.sk);
+            sim.claimWin(kat.address, kat.sk);
         }).toThrow("You do not have the winning number");
         
-        sim.claimWin(fred.sk);
+        sim.claimWin(fred.address, fred.sk);
         const ledgerState = sim.getLedger();
-        expect(ledgerState.state).toEqual(WinnerState.SET);
+        expect(ledgerState.winState).toEqual(WinnerState.SET);
 
         const winnerDappPubKey = sim.publicKey(fred.sk);
         expect(ledgerState.winner).toEqual(winnerDappPubKey);
@@ -168,8 +168,7 @@ describe("Raffle Smart Contract", () => {
         sim.getTicket(ezra.sk);
         sim.getTicket(fred.sk);
         sim.getTicket(greg.sk);
-        sim.getTicket(harold
-.sk);
+        sim.getTicket(harold.sk);
         sim.getTicket(idris.sk);
         sim.getTicket(joe.sk);
         sim.getTicket(kat.sk);

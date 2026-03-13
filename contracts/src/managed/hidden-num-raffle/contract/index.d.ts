@@ -9,21 +9,25 @@ export type ImpureCircuits<PS> = {
   getTicket(context: __compactRuntime.CircuitContext<PS>, _sk_0: Uint8Array): __compactRuntime.CircuitResults<PS, []>;
   revealWinner(context: __compactRuntime.CircuitContext<PS>,
                winningNum_0: bigint,
-               sk_0: Uint8Array): __compactRuntime.CircuitResults<PS, []>;
-  claimWin(context: __compactRuntime.CircuitContext<PS>, sk_0: Uint8Array): __compactRuntime.CircuitResults<PS, []>;
+               _sk_0: Uint8Array): __compactRuntime.CircuitResults<PS, []>;
+  claimWin(context: __compactRuntime.CircuitContext<PS>,
+           address_0: Uint8Array,
+           _sk_0: Uint8Array): __compactRuntime.CircuitResults<PS, []>;
 }
 
 export type PureCircuits = {
-  publicKey(sk_0: Uint8Array): Uint8Array;
+  publicKey(_sk_0: Uint8Array): Uint8Array;
 }
 
 export type Circuits<PS> = {
   getTicket(context: __compactRuntime.CircuitContext<PS>, _sk_0: Uint8Array): __compactRuntime.CircuitResults<PS, []>;
   revealWinner(context: __compactRuntime.CircuitContext<PS>,
                winningNum_0: bigint,
-               sk_0: Uint8Array): __compactRuntime.CircuitResults<PS, []>;
-  claimWin(context: __compactRuntime.CircuitContext<PS>, sk_0: Uint8Array): __compactRuntime.CircuitResults<PS, []>;
-  publicKey(context: __compactRuntime.CircuitContext<PS>, sk_0: Uint8Array): __compactRuntime.CircuitResults<PS, Uint8Array>;
+               _sk_0: Uint8Array): __compactRuntime.CircuitResults<PS, []>;
+  claimWin(context: __compactRuntime.CircuitContext<PS>,
+           address_0: Uint8Array,
+           _sk_0: Uint8Array): __compactRuntime.CircuitResults<PS, []>;
+  publicKey(context: __compactRuntime.CircuitContext<PS>, _sk_0: Uint8Array): __compactRuntime.CircuitResults<PS, Uint8Array>;
 }
 
 export type Ledger = {
@@ -31,7 +35,7 @@ export type Ledger = {
   readonly hashedWinningNum: Uint8Array;
   readonly publicWinningNum: bigint;
   readonly winner: Uint8Array;
-  readonly state: WinnerState;
+  readonly winState: WinnerState;
   readonly assignedNumbers: bigint;
   assignedTicketHolders: {
     isEmpty(): boolean;
@@ -40,6 +44,7 @@ export type Ledger = {
     lookup(key_0: Uint8Array): bigint;
     [Symbol.iterator](): Iterator<[Uint8Array, bigint]>
   };
+  readonly raffleAmount: bigint;
 }
 
 export type ContractReferenceLocations = any;
@@ -52,7 +57,8 @@ export declare class Contract<PS = any, W extends Witnesses<PS> = Witnesses<PS>>
   impureCircuits: ImpureCircuits<PS>;
   constructor(witnesses: W);
   initialState(context: __compactRuntime.ConstructorContext<PS>,
-               winningNum_0: bigint,
+               _winningNum_0: bigint,
+               amount_0: bigint,
                _sk_0: Uint8Array): __compactRuntime.ConstructorResult<PS>;
 }
 
