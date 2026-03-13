@@ -25,7 +25,7 @@ constructor(_winningNum: Uint<8>, amount: Uint<8>, _sk: Bytes<32>) {
 
     // nativeToken() is the color of the night token
     receiveUnshielded(nativeToken(), pubAmount);
-    // assert(unshieldedBalanceGte(nativeToken(), pubAmount), "Initial contract balance wrong");
+    //assert(unshieldedBalanceGte(nativeToken(), pubAmount), "Initial contract balance wrong");
 
     raffleAmount = pubAmount;// maybe this should just be a balance check?
     hashedWinningNum = commitWithSk(_winningNum as Bytes<32>, _sk);

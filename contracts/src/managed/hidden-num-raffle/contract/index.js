@@ -1206,7 +1206,7 @@ export const pureCircuits = {
     if (!(_sk_0.buffer instanceof ArrayBuffer && _sk_0.BYTES_PER_ELEMENT === 1 && _sk_0.length === 32)) {
       __compactRuntime.typeError('publicKey',
                                  'argument 1',
-                                 'hidden-num-raffle.compact line 82 char 1',
+                                 'hidden-num-raffle.compact line 83 char 1',
                                  'Bytes<32>',
                                  _sk_0)
     }
