@@ -3,16 +3,23 @@ import type * as __compactRuntime from '@midnight-ntwrk/compact-runtime';
 export enum WinnerState { UNSET = 0, SET = 1 }
 
 export type Witnesses<PS> = {
+  localSk(context: __compactRuntime.WitnessContext<Ledger, PS>): [PS, Uint8Array];
 }
 
 export type ImpureCircuits<PS> = {
-  getTicket(context: __compactRuntime.CircuitContext<PS>, _sk_0: Uint8Array): __compactRuntime.CircuitResults<PS, []>;
+  getTicket(context: __compactRuntime.CircuitContext<PS>): __compactRuntime.CircuitResults<PS, []>;
   revealWinner(context: __compactRuntime.CircuitContext<PS>,
-               winningNum_0: bigint,
-               _sk_0: Uint8Array): __compactRuntime.CircuitResults<PS, []>;
+               winningNum_0: bigint): __compactRuntime.CircuitResults<PS, []>;
   claimWin(context: __compactRuntime.CircuitContext<PS>,
-           address_0: Uint8Array,
-           _sk_0: Uint8Array): __compactRuntime.CircuitResults<PS, []>;
+           userAddress_0: { bytes: Uint8Array }): __compactRuntime.CircuitResults<PS, []>;
+}
+
+export type ProvableCircuits<PS> = {
+  getTicket(context: __compactRuntime.CircuitContext<PS>): __compactRuntime.CircuitResults<PS, []>;
+  revealWinner(context: __compactRuntime.CircuitContext<PS>,
+               winningNum_0: bigint): __compactRuntime.CircuitResults<PS, []>;
+  claimWin(context: __compactRuntime.CircuitContext<PS>,
+           userAddress_0: { bytes: Uint8Array }): __compactRuntime.CircuitResults<PS, []>;
 }
 
 export type PureCircuits = {
@@ -20,13 +27,11 @@ export type PureCircuits = {
 }
 
 export type Circuits<PS> = {
-  getTicket(context: __compactRuntime.CircuitContext<PS>, _sk_0: Uint8Array): __compactRuntime.CircuitResults<PS, []>;
+  getTicket(context: __compactRuntime.CircuitContext<PS>): __compactRuntime.CircuitResults<PS, []>;
   revealWinner(context: __compactRuntime.CircuitContext<PS>,
-               winningNum_0: bigint,
-               _sk_0: Uint8Array): __compactRuntime.CircuitResults<PS, []>;
+               winningNum_0: bigint): __compactRuntime.CircuitResults<PS, []>;
   claimWin(context: __compactRuntime.CircuitContext<PS>,
-           address_0: Uint8Array,
-           _sk_0: Uint8Array): __compactRuntime.CircuitResults<PS, []>;
+           userAddress_0: { bytes: Uint8Array }): __compactRuntime.CircuitResults<PS, []>;
   publicKey(context: __compactRuntime.CircuitContext<PS>, _sk_0: Uint8Array): __compactRuntime.CircuitResults<PS, Uint8Array>;
 }
 
@@ -55,11 +60,11 @@ export declare class Contract<PS = any, W extends Witnesses<PS> = Witnesses<PS>>
   witnesses: W;
   circuits: Circuits<PS>;
   impureCircuits: ImpureCircuits<PS>;
+  provableCircuits: ProvableCircuits<PS>;
   constructor(witnesses: W);
   initialState(context: __compactRuntime.ConstructorContext<PS>,
                _winningNum_0: bigint,
-               amount_0: bigint,
-               _sk_0: Uint8Array): __compactRuntime.ConstructorResult<PS>;
+               amount_0: bigint): __compactRuntime.ConstructorResult<PS>;
 }
 
 export declare function ledger(state: __compactRuntime.StateValue | __compactRuntime.ChargedState): Ledger;
