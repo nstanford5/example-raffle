@@ -5,7 +5,9 @@ import {
     CostModel,
     QueryContext,
     sampleUserAddress,
-    encodeUserAddress
+    encodeUserAddress,
+    ChargedState,
+    createCircuitContext
 } from "@midnight-ntwrk/compact-runtime";
 import { 
     Contract,
@@ -36,7 +38,7 @@ export class RaffleSimulator {
         this.contractAddress = sampleContractAddress();
         this.aliceAddress = sampleUserAddress();
         this.aliceSk = randomBytes(32);
-        this.alicePrivateState = createRafflePrivateState(WinnerState.UNSET, this.aliceSk);
+        this.alicePrivateState = createRafflePrivateState(this.aliceAddress, this.aliceSk);
         this.amount = 100n;// arbitrary
 
         const {
@@ -47,7 +49,6 @@ export class RaffleSimulator {
             createConstructorContext(this.alicePrivateState, this.aliceAddress),
             winningNum,
             this.amount,
-            this.aliceSk
         );
         this.circuitContext = {
             currentPrivateState,
@@ -67,26 +68,23 @@ export class RaffleSimulator {
         ).result;
     }
 
-    public getTicket(sk: Uint8Array): void {
+    public getTicket(): void {
         this.circuitContext = this.contract.impureCircuits.getTicket(
             this.circuitContext,
-            sk
         ).context;
     }
 
-    public revealWinner(winningNum: bigint, sk: Uint8Array): void {
+    public revealWinner(winningNum: bigint): void {
         this.circuitContext = this.contract.impureCircuits.revealWinner(
             this.circuitContext,
             winningNum,
-            sk
         ).context;
     }
 
-    public claimWin(address: string, sk: Uint8Array): void {
+    public claimWin(address: string): void {
         this.circuitContext = this.contract.impureCircuits.claimWin(
             this.circuitContext,
-            encodeUserAddress(address),// encode string->Uint8Array
-            sk
+            { bytes: encodeUserAddress(address) },// encode string->Uint8Array
         ).context;
     }
 
@@ -94,14 +92,53 @@ export class RaffleSimulator {
     public getLedger(): Ledger {
         return ledger(this.circuitContext.currentQueryContext.state);
     }
+    
+    public switchCallers(callerContext: CircuitContext): void {
+        this.circuitContext = callerContext;
+    }
+
+    public updateAliceContext(contractState: ChargedState): void {
+        this.circuitContext = createCircuitContext(
+            this.contractAddress,
+            this.aliceAddress,
+            contractState,
+            this.alicePrivateState
+        )
+    }
+
+    public getContractState(): ChargedState {
+        return this.circuitContext.currentQueryContext.state;
+    }
 }
 
 export class WalletBuilder {
     address: string;
     sk: Uint8Array;
+    contractAddress: string;
+    privateState: RafflePrivateState;
+    callerContext: CircuitContext<RafflePrivateState>;
 
-    constructor(){
+    constructor(contractAddress: string, contractState: ChargedState){
         this.address = sampleUserAddress();
         this.sk = randomBytes(32);
+        this.contractAddress = contractAddress;
+        this.privateState = createRafflePrivateState(
+            this.address,
+            this.sk
+        );
+        this.callerContext = createCircuitContext(
+            this.contractAddress,
+            this.address,
+            contractState,
+            this.privateState
+        );
+    }
+    public updateCallerContext(contractState: ChargedState): void {
+        this.callerContext = createCircuitContext(
+            this.contractAddress,
+            this.address,
+            contractState,
+            this.privateState
+        );
     }
 }
