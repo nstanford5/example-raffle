@@ -1,0 +1,97 @@
+pragma language_version 0.22;
+import CompactStandardLibrary;
+
+export enum WinnerState {
+    UNSET,
+    SET
+}
+
+export ledger raffleOrganizer: Bytes<32>;
+export ledger hashedWinningNum: Bytes<32>;
+export ledger publicWinningNum: Uint<8>;
+export ledger winner: Bytes<32>;
+export ledger winState: WinnerState;
+export ledger assignedNumbers: Counter;
+export ledger assignedTicketHolders: Map<Bytes<32>, Uint<8>>;
+export ledger raffleAmount: Uint<8>;
+
+witness localSk(): Bytes<32>;
+
+constructor(_winningNum: Uint<8>, amount: Uint<8>) {
+    assert(_winningNum >= 1 && _winningNum <= 10, "Winning number must be between 1-10");
+
+    const _sk = localSk();
+    const pubKey = publicKey(_sk);
+    raffleOrganizer = disclose(pubKey);
+
+    const pubAmount = disclose(amount);
+    raffleAmount = pubAmount;
+
+    // recieve tokens to the contract, nativeToken() is the color of the night token
+    // receiveUnshielded(nativeToken(), pubAmount);
+    //assert(unshieldedBalanceGte(nativeToken(), raffleAmount), "Initial contract balance wrong");
+
+    hashedWinningNum = commitWithSk(_winningNum as Bytes<32>, _sk);
+    winState = WinnerState.UNSET;
+}
+
+export circuit getTicket() : [] {
+    assert(winState == WinnerState.UNSET, "A winner has already been declared");
+    assert(assignedNumbers < 10, "Max tickets reached");
+
+    const _sk = localSk();
+    const key = publicKey(_sk);
+    const pubKey = disclose(key);
+    assert(!assignedTicketHolders.member(pubKey), "You are already in the list");
+    assert(pubKey != raffleOrganizer, "The organizer cannot participate");
+
+    assignedNumbers.increment(1);// account for 0 index for users
+    assignedTicketHolders.insert(pubKey, assignedNumbers as Uint<8>);
+}
+
+export circuit revealWinner(winningNum: Uint<8>) : [] {
+    const _sk = localSk();
+    const pubKey = publicKey(_sk);
+    assert(disclose(pubKey) == raffleOrganizer, "You are not the organizer");
+    assert(winState == WinnerState.UNSET, "A winner has already been declared");
+    
+    const commitCheck = commitWithSk(winningNum as Bytes<32>, _sk);
+    assert(commitCheck == hashedWinningNum, "Wrong winning number provided, please provide the original winning number");    
+    
+    publicWinningNum = disclose(winningNum);
+    winState = WinnerState.SET;
+}
+
+export circuit claimWin(userAddress: UserAddress) : [] {
+    const _sk = localSk();
+    const key = publicKey(_sk);
+    const pubKey = disclose(key);
+
+    assert(assignedTicketHolders.member(pubKey), "You are not an assigned ticket holder");
+    assert(winState == WinnerState.SET, "A winner has not been chosen yet");
+    assert(assignedTicketHolders.lookup(pubKey) == publicWinningNum, "You do not have the winning number");
+
+    winner = pubKey;
+
+    // send from the contract to the winner
+    // sendUnshielded(
+    //     nativeToken(), 
+    //     raffleAmount as Uint<128>, 
+    //     right<ContractAddress, UserAddress>(disclose(userAddress))
+    // );
+    // // nativeToken() is the color of NIGHT
+    // assert(unshieldedBalanceLt(nativeToken(), raffleAmount as Uint<128>), "Tokens still in contract");
+    raffleAmount = 0;
+}
+ 
+// winningNum between 1-10 is easy to brute force, but coupled with the _sk
+// it is not possible to guess 
+circuit commitWithSk(_winningNum: Bytes<32>, _sk: Bytes<32>) : Bytes<32> {
+    return disclose(persistentHash<Vector<2, Bytes<32>>>([_winningNum, _sk]));
+}
+
+// hash the users sk to create a public key unique to this DApp
+// making it impossible to track the user outside of this DApp
+export circuit publicKey(_sk: Bytes<32>): Bytes<32> {
+    return persistentHash<Vector<2, Bytes<32>>>([pad(32, "raffle:pk:"), _sk]);
+}
