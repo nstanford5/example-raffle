@@ -216,6 +216,8 @@ describe('Raffle Smart Contract', () => {
         expect(claireState.assignedNumbers).toEqual(2n);
 
         // @TODO -- fails due to lack of funds
+        // Hypothesis: bad seed "4", maybe 3 is the max of "prefunded accounts",
+        // maybe need to transfer from the aliceWallet to others?
         // // start don
         // const donSk = randomBytes(32);
         // const donPrivateState = createRafflePrivateState(donWallet.getCoinPublicKey(), donSk);
