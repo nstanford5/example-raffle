@@ -28,8 +28,8 @@ export class MidnightWalletProvider implements MidnightProvider, WalletProvider 
     private readonly logger: Logger,
     private readonly env: EnvironmentConfiguration,
     wallet: WalletFacade,
-    private readonly zswapSecretKeys: ZswapSecretKeys,
-    private readonly dustSecretKey: DustSecretKey,
+    public readonly zswapSecretKeys: ZswapSecretKeys,// changed from private to public
+    public readonly dustSecretKey: DustSecretKey,
   ) {
     this.wallet = wallet;
   }

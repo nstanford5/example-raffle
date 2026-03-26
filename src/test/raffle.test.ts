@@ -4,6 +4,7 @@ import { setNetworkId } from '@midnight-ntwrk/midnight-js-network-id';
 import {
     createUnprovenDeployTx,
     submitCallTx,
+    deployContract,
 } from '@midnight-ntwrk/midnight-js-contracts';
 import type { ContractAddress } from '@midnight-ntwrk/compact-runtime';
 import pino from 'pino';
@@ -33,12 +34,10 @@ process.on('uncaughtException', (err) => {
 const LOCAL_DEV_SEED = '0000000000000000000000000000000000000000000000000000000000000001';
 const BOB_SEED = '0000000000000000000000000000000000000000000000000000000000000002';
 const CLAIRE_SEED = '0000000000000000000000000000000000000000000000000000000000000003';
-const DON_SEED = '0000000000000000000000000000000000000000000000000000000000000004';
 
 const ALICE_PRIVATE_STATE_ID = 'AlicePrivateRaffleState';
 const BOB_PRIVATE_STATE_ID = 'BobPrivateRaffleState';
 const CLAIRE_PRIVATE_STATE_ID = 'ClairePrivateRaffleState';
-const DON_PRIVATE_STATE_ID = 'DonPrivateRaffleState';
 
 const logger = pino({
     level: process.env['LOG_LEVEL'] ?? 'info',
@@ -49,18 +48,17 @@ describe('Raffle Smart Contract', () => {
     let aliceWallet: MidnightWalletProvider;
     let bobWallet: MidnightWalletProvider;
     let claireWallet: MidnightWalletProvider;
-    let donWallet: MidnightWalletProvider;
     let aliceProviders: RaffleProviders;
     let bobProviders: RaffleProviders;
     let claireProviders: RaffleProviders;
-    let donProviders: RaffleProviders;
     let contractAddress: ContractAddress;
 
     const config = getConfig();
     const seed = LOCAL_DEV_SEED;
     const seed2 = BOB_SEED;
     const seed3 = CLAIRE_SEED;
-    const seed4 = DON_SEED;
+    const winningNum = BigInt(1);
+    const amount = BigInt(10);
 
     beforeAll(async () => {
         setNetworkId(config.networkId);
@@ -88,14 +86,9 @@ describe('Raffle Smart Contract', () => {
         await claireWallet.start();
         await syncWallet(logger, claireWallet.wallet, 600_000);
 
-        donWallet = await MidnightWalletProvider.build(logger, envConfig, seed4!);
-        await donWallet.start();
-        await syncWallet(logger, donWallet.wallet, 600_000);
-
         aliceProviders = buildProviders(aliceWallet, zkConfigPath, config);
         bobProviders = buildProviders(bobWallet, zkConfigPath, config);
         claireProviders = buildProviders(claireWallet, zkConfigPath, config);
-        donProviders = buildProviders(donWallet, zkConfigPath, config);
         logger.info(`Providers initialized. Ready to test`);
     });
 
@@ -112,25 +105,20 @@ describe('Raffle Smart Contract', () => {
             logger.info('Stopping Claire wallet...');
             await claireWallet.stop();
         }
-        if(donWallet) {
-            logger.info('Stopping Don wallet...');
-            await donWallet.stop();
-        }
     });
 
     it('Deploys the contract', async () => {
         const aliceSk = randomBytes(32);
-        const winningNum = BigInt(5);
-        const amount = BigInt(10);
         const initialPrivateState = createRafflePrivateState(aliceWallet.getCoinPublicKey(), aliceSk);
 
+        // Option #1: manually work through each step of the process allowing flexibility
         // Step 1: local circuit execution
         // createUnprovenDeployTx is the reason for the Steps that follow
         const unprovenData: any = await (createUnprovenDeployTx as any)(aliceProviders, {
             compiledContract: CompiledRaffleContract,
             privateStateId: ALICE_PRIVATE_STATE_ID,
             initialPrivateState,
-            args: [winningNum, amount]// constructor args here (winningNum, amount)
+            args: [winningNum, amount]// contract constructor args
         });
 
         const pendingAddress = unprovenData.public?.contractAddress;
@@ -152,9 +140,17 @@ describe('Raffle Smart Contract', () => {
         const finalizedTxData = await aliceProviders.publicDataProvider.watchForTxData(txId);
         logger.info(`Finalized! Status: ${finalizedTxData.status}, block: ${finalizedTxData.blockHeight}`);
 
+        // Option #2: deployContract as an abstraction
+        // const deployed: any = await 
+        //     (deployContract as any)(aliceProviders, {
+        //         compiledContract: CompiledRaffleContract,
+        //         privateStateId: ALICE_PRIVATE_STATE_ID,
+        //         initialPrivateState,
+        //         args: [winningNum, amount],
+        //     },
+        // );
+
         // Store private state (normally done inside deployContract)
-        // @TODO -- why is it occuring here?
-        // Hypothesis: using createUnprovenDeployTx makes this necessary
         logger.info(`Setting the contract address...`);
         aliceProviders.privateStateProvider.setContractAddress(pendingAddress);
         await aliceProviders.privateStateProvider.set(ALICE_PRIVATE_STATE_ID, initialPrivateState);
@@ -169,6 +165,8 @@ describe('Raffle Smart Contract', () => {
         expect(initialContractState).not.toBeNull();
         const initialState = ledger(initialContractState!.data);
         expect(initialState.winState).toEqual(WinnerState.UNSET);
+        expect(initialState.raffleAmount).toEqual(amount);
+        expect(initialState.assignedNumbers).toEqual(0n);
     });
     it('allows getTicket', async () => {
         // bob tries to buy a raffle ticket
@@ -215,29 +213,98 @@ describe('Raffle Smart Contract', () => {
         const claireState = ledger(claireContractState!.data);
         expect(claireState.assignedNumbers).toEqual(2n);
 
-        // @TODO -- fails due to lack of funds
-        // Hypothesis: bad seed "4", maybe 3 is the max of "prefunded accounts",
-        // maybe need to transfer from the aliceWallet to others?
-        // // start don
-        // const donSk = randomBytes(32);
-        // const donPrivateState = createRafflePrivateState(donWallet.getCoinPublicKey(), donSk);
-        // donProviders.privateStateProvider.setContractAddress(contractAddress);
-        // await donProviders.privateStateProvider.set(DON_PRIVATE_STATE_ID, donPrivateState);
-        
-        // const donTxData: any = await (submitCallTx as any)(donProviders, {
-        //     compiledContract: CompiledRaffleContract,
-        //     contractAddress,
-        //     privateStateId: DON_PRIVATE_STATE_ID,
-        //     circuitId: 'getTicket',
-        //     args: []
-        // });
-
-        // // verify state changed via indexer
-        // const donContractState = await donProviders.publicDataProvider.queryContractState(contractAddress);
-        // expect(donContractState).not.toBeNull();
-        // const donState = ledger(donContractState!.data);
-        // expect(donState.assignedNumbers).toEqual(3n);
-
-
+        // @TODO -- request local net with more pre-funded addresses
     });
+    it('blocks tickets to Alice', async () => {
+                // alice is not allowed to get a ticket
+        await expect(async () => {
+            await (submitCallTx as any)(aliceProviders, {
+                compiledContract: CompiledRaffleContract,
+                contractAddress,
+                privateStateId: ALICE_PRIVATE_STATE_ID,
+                circuitId: 'getTicket',
+                args: []
+            })
+        }).rejects.toThrow();
+    });
+    it('blocks duplicate tickets', async () => {
+        await expect(async () => {
+            await (submitCallTx as any)(bobProviders, {
+                compiledContract: CompiledRaffleContract,
+                contractAddress,
+                privateStateId: BOB_PRIVATE_STATE_ID,
+                circuitId: 'getTicket',
+                args: [],
+            })
+        }).rejects.toThrow();
+
+        await expect(async () => {
+            await (submitCallTx as any)(claireProviders, {
+                compiledContract: CompiledRaffleContract,
+                contractAddress,
+                privateStateId: CLAIRE_PRIVATE_STATE_ID,
+                circuitId: 'getTicket',
+                args: []
+            })
+        }).rejects.toThrow();
+    });
+    it('rejects non-organizer from revealing winner', async () => {
+        await expect(async () => {
+            await (submitCallTx as any)(bobProviders, {
+                compiledContract: CompiledRaffleContract,
+                contractAddress,
+                privateStateId: BOB_PRIVATE_STATE_ID,
+                circuitId: 'revealWinner',
+                args: [winningNum]
+            })
+        }).rejects.toThrow();
+    });
+    it('allows the organizer to reveal the winner', async () => {
+        await (submitCallTx as any)(aliceProviders, {
+            compiledContract: CompiledRaffleContract,
+            contractAddress,
+            privateStateId: ALICE_PRIVATE_STATE_ID,
+            circuitId: 'revealWinner',
+            args: [winningNum]
+        });
+
+        const finalLedgerState = await aliceProviders.publicDataProvider.queryContractState(contractAddress);
+        expect(finalLedgerState).not.toBeNull();
+        const finalState = ledger(finalLedgerState!.data);
+        expect(finalState.winState).toEqual(WinnerState.SET);
+        expect(finalState.publicWinningNum).toEqual(winningNum);
+    });
+    it('rejects non winner from claiming', async () => {
+        const claireAddress = new Uint8Array(
+            (claireWallet.getCoinPublicKey() as string)
+                .match(/.{1,2}/g)!
+                .map((b: string) => parseInt(b, 16)),
+        );
+
+        await expect(async () => {
+            await (submitCallTx as any)(claireProviders, {
+                compiledContract: CompiledRaffleContract,
+                contractAddress,
+                privateStateId: CLAIRE_PRIVATE_STATE_ID,
+                circuitId: 'claimWin',
+                args: [{ bytes: claireAddress }]
+            });
+        }).rejects.toThrow();
+    });
+    it('allows claim from winner', async () => {
+        // @TODO -- is there an encoding function for this?
+        const bobAddress = new Uint8Array(
+            (bobWallet.getCoinPublicKey() as string)
+                .match(/.{1,2}/g)!
+                .map((b: string) => parseInt(b, 16)),
+        );
+
+        await (submitCallTx as any)(bobProviders, {
+            compiledContract: CompiledRaffleContract,
+            contractAddress,
+            privateStateId: BOB_PRIVATE_STATE_ID,
+            circuitId: 'claimWin',
+            args: [{ bytes: bobAddress }]
+        });
+    })
 })
